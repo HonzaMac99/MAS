@@ -17,14 +17,23 @@ def define_game(maze, bandit_cnt, prob):
     # Describe the tree of possible playthroughs of the game based on the 
     # maze and the rules. Start with each node in a unique infoset, then 
     # consider the information the players have at each point and encode it.
-    
-    return TerminalNode("implement me", [0])
+    # node1 = PersonalNode("Player1 node", ["up", "down", "left", "right"])
+    # node2 = PersonalNode("Player2 node", ["up", "down", "left", "right"])
+    end1 = TerminalNode("p1 wins", [3])
+    end2 = TerminalNode("p2 wins", [-3])
+    chance1 = ChanceNode("chance", [end1, end2], ["left", "right"], [0.8, 0.2])
+    chance2 = ChanceNode("chance", [end2, end1], ["left", "right"], [0.8, 0.2])
+    pl1 = PersonalNode("p1 choice", 1, 1, [chance1, chance2], ["option a", "option b"])
+
+    return pl1
 
 
 def read_maze(io):
     bandit_cnt, prob = numpy.fromstring(io.readline(), sep=' ')
     lines = [list(lin) for lin in map(str.strip, io.readlines()) if lin]
     maze = numpy.array(lines)
+    print("Maze interpretation:")
+    print(maze)
 
     return maze, int(bandit_cnt), prob
 
@@ -46,7 +55,7 @@ def game_value(efg):
 
 
 if __name__ == '__main__':
-    print("starting")
+    print("hello")
     maze, bandit_cnt, prob = read_maze(sys.stdin)
     root = define_game(maze, bandit_cnt, prob)    
 
@@ -56,7 +65,7 @@ if __name__ == '__main__':
     efg = export_efg.nodes_to_efg(root)
 
     # NOT on BRUTE!
-    # game_value(efg)
+    game_value(efg)
 
     # Print the efg representation.
     # Yes on BRUTE
