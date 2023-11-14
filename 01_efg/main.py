@@ -14,8 +14,24 @@ class Player(IntEnum):
     BANDIT = 1
 
 
-START_INFOSET = 1
-infosets = [2, 2]  # [I_player, i_bandit]
+class Infosets():
+    def __init__(self):
+        self.p_isets = 0
+        self.b_isets = 0
+        self.p_paths = {}
+        self.b_paths = {}
+
+    def get_p_infoset(self, path):
+        if path not in self.p_paths:
+            self.p_paths[path] = self.p_isets
+            self.p_isets += 1
+        return self.p_paths[path]
+
+    def get_b_infoset(self, path):
+        if path not in self.b_paths:
+            self.b_paths[path] = self.b_isets
+            self.b_isets += 1
+        return self.b_paths[path]
 
 
 def find_start(maze):
@@ -57,7 +73,7 @@ def in_maze(maze, coord):
     return inside and not is_wall
 
 
-def expand_player(maze, visited, enemy_pos, pos, capture_prob, points):
+def expand_player(maze, visited, p_path, b_path, enemy_pos, pos, capture_prob, points):
     directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
     pl_actions = ["up", "down", "left", "right"]
     cur_actions = []
@@ -66,57 +82,86 @@ def expand_player(maze, visited, enemy_pos, pos, capture_prob, points):
     for i in range(len(directions)):
         drct = directions[i]
         new_pos = (pos[0] + drct[0], pos[1] + drct[1])
-        print(" ", in_maze(maze, new_pos) and not visited[new_pos], new_pos)
+        # print(" ", in_maze(maze, new_pos) and not visited[new_pos], new_pos)
         if in_maze(maze, new_pos) and not visited[new_pos]:
-            new_node = search_maze(maze, copy.deepcopy(visited), enemy_pos, new_pos, capture_prob, points)
+            new_p_path = p_path + pl_actions[i]
+
+            new_node = search_maze(maze, visited.copy(), new_p_path,
+                                   b_path, enemy_pos, new_pos, capture_prob, points)
+
             childs.append(copy.deepcopy(new_node))
             cur_actions.append(pl_actions[i])
     return childs, cur_actions
 
 
-def search_maze(maze, visited, enemy_pos, pos, capture_prob, points):
+Game_infosets = Infosets()
+
+
+def search_maze(maze, visited, p_path, b_path, enemy_pos, pos, capture_prob, points):
     e_actions = ["take gold", "fight"]
     f_actions = ["lost fight", "won fight"]
     visited[pos] = 1
     cur_node = None
 
     if maze[pos] == 'D':
-        print("Goal reached:")
+        # print("Goal reached:")
         points += 2
         return TerminalNode("Exit: " + str(pos), [points])
     elif maze[pos] == 'G':
         points += 1
     # if maze[pos] == 'E' then we use the expand_player values for the win fight case
 
-    print("Branching:", pos)
-    print(visited)
-    childs, cur_actions = expand_player(maze, copy.deepcopy(visited), enemy_pos, pos, capture_prob, points)
+    # print("Branching:", pos)
+    # print(visited)
+    childs, cur_actions = expand_player(maze, visited.copy(), p_path,
+                                        b_path, enemy_pos, pos, capture_prob, points)
 
-    if len(childs) == 0:
-        print("Got stuck:")
-        cur_node = TerminalNode("Got stuck: " + str(pos), [0])
+    if len(childs) == 0 and not (maze[pos] == 'E' and pos in enemy_pos):
+        # print("Got stuck:")
+        last_node = TerminalNode("Got stuck: " + str(pos), [0])
+        childs = [last_node]
+        p_infoset = Game_infosets.get_p_infoset(p_path)
+        cur_node = PersonalNode("Player: " + str(pos), p_infoset, Player.PLAYER, childs, cur_actions)
     elif maze[pos] in ['S', '-', 'G'] or (maze[pos] == 'E' and pos not in enemy_pos):
-        print("Returning from:", pos)
-        cur_node = PersonalNode("Player: " + str(pos), infosets[0], Player.PLAYER, childs, cur_actions)
-        infosets[0] += 1
+        # print("Returning from:", pos)
+        p_infoset = Game_infosets.get_p_infoset(p_path)
+        cur_node = PersonalNode("Player: " + str(pos), p_infoset, Player.PLAYER, childs, cur_actions)
     elif maze[pos] == 'E' and pos in enemy_pos:
         lost_fight = TerminalNode("Got captured: " + str(pos), [0])
-        won_fight = PersonalNode("Player: " + str(pos), infosets[0], Player.PLAYER, childs, cur_actions)
-        infosets[0] += 1
+
+        if len(childs) > 0:
+            new_p_path = p_path + "fought"
+            new_b_path = b_path + "fought"
+            childs_2, cur_actions_2 = expand_player(maze, visited.copy(), new_p_path,
+                                                    new_b_path, enemy_pos, pos, capture_prob, points)
+        else:
+            last_node = TerminalNode("Got stuck: " + str(pos), [0])
+            childs_2, cur_actions_2 = [last_node], []
+
+        p_infoset = Game_infosets.get_p_infoset(p_path + "fought")
+        won_fight = PersonalNode("Player: " + str(pos), p_infoset, Player.PLAYER, childs_2, cur_actions_2)
 
         fight_childs = [lost_fight, won_fight]
         probs = [capture_prob, 1 - capture_prob]
         fight_choice = ChanceNode("Fight: " + str(pos), fight_childs, f_actions, probs)
-        childs2, cur_actions2 = expand_player(maze, copy.deepcopy(visited), enemy_pos, pos, capture_prob, 0)
-        take_gold_choice = PersonalNode("Player: " + str(pos), infosets[0], Player.PLAYER, childs2, cur_actions2)
-        infosets[0] += 1
+
+        if len(childs) > 0:
+            new_p_path = p_path + "nogold"
+            new_b_path = b_path + "tookgold"
+            childs_3, cur_actions_3 = expand_player(maze, visited.copy(), new_p_path,
+                                                    new_b_path, enemy_pos, pos, capture_prob, 0)
+        else:
+            last_node = TerminalNode("Got stuck: " + str(pos), [0])
+            childs_3, cur_actions_3 = [last_node], []
+
+        p_infoset = Game_infosets.get_p_infoset(p_path + "nogold")
+        take_gold_choice = PersonalNode("Player: " + str(pos), p_infoset, Player.PLAYER, childs_3, cur_actions_3)
 
         enemy_childs = [take_gold_choice, fight_choice]
-        cur_node = PersonalNode("Bandit: " + str(pos), infosets[1], Player.BANDIT, enemy_childs, e_actions)
-        infosets[1] += 1
+        b_infoset = Game_infosets.get_b_infoset(b_path)
+        cur_node = PersonalNode("Bandit: " + str(pos), b_infoset, Player.BANDIT, enemy_childs, e_actions)
 
     return cur_node
-
 
 
 def define_game(maze, bandit_cnt, prob):
@@ -130,23 +175,26 @@ def define_game(maze, bandit_cnt, prob):
     enemy_opts = get_enemy_opts(hiding_poses, bandit_cnt)
     points = 0
 
-    print("The maze:")
-    print(maze)
-    print("Start: ", start_pose)
-    print("Hidings: ", hiding_poses)
-
     visited[start_pose] = 1
 
     if len(hiding_poses) == 0:
-        root_node = search_maze(maze, copy.deepcopy(visited), [], start_pose, prob, points)
+        new_p_path = ""
+        new_b_path = ""
+        enemy_poses = []
+        root_node = search_maze(maze, visited.copy(), new_p_path,
+                                new_b_path, enemy_poses, start_pose, prob, points)
     else:
         actions = []
         childs = []
         for enemy_poses in enemy_opts:
-            new_node = search_maze(maze, copy.deepcopy(visited), enemy_poses, start_pose, prob, points)
+            new_p_path = ""
+            new_b_path = str(enemy_poses)
+            new_node = search_maze(maze, visited.copy(), new_p_path,
+                                   new_b_path, enemy_poses, start_pose, prob, points)
             childs.append(copy.deepcopy(new_node))
             actions.append(str(enemy_poses))
-        root_node = PersonalNode("Bandit choice", infosets[1], Player.BANDIT, childs, actions)
+        b_infoset = Game_infosets.get_b_infoset(start_pose)
+        root_node = PersonalNode("Bandit choice", b_infoset, Player.BANDIT, childs, actions)
 
     return root_node
 
@@ -179,13 +227,13 @@ if __name__ == '__main__':
     root = define_game(maze, bandit_cnt, prob)    
 
     # NOT on BRUTE!
-    draw_game(root)
+    # draw_game(root)
 
-    # efg = export_efg.nodes_to_efg(root)
+    efg = export_efg.nodes_to_efg(root)
 
     # NOT on BRUTE!
     # game_value(efg)
 
     # Print the efg representation.
     # Yes on BRUTE
-    # print(repr(efg))
+    print(repr(efg))
