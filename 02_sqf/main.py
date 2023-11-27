@@ -53,6 +53,7 @@ def payoff(efg):
 
 if __name__ == "__main__":
     efg = sys.stdin.read()
+    print(efg)
     game = pygambit.Game.parse_game(efg)
     root = import_efg.efg_to_nodes(game)
 
