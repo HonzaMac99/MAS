@@ -14,6 +14,7 @@ def sqf(I, Sigma, A, seq, g):
       seq: {(p_0, infoset_0) : seq_0, ... }:
         g: {(seq_0, seq_1) : utility, ... }
     """
+    # todo: does seq return strings?
 
     # Implement this first. The function should be completely general. Do not
     # traverse the graph at this point! Simply use the gurobi modeling interface
@@ -45,7 +46,7 @@ def sqf(I, Sigma, A, seq, g):
     for i in range(len(I[1])):
         iset1 = I[1][i]
         v_s1 = values["v_" + str(iset1)]
-        if seq(1, iset1) is None:  # TODO: is it really None or ""?
+        if not seq(1, iset1):
             v_root += v_s1
 
     m.setObjective(v_root, GRB.MAXIMIZE)
@@ -75,42 +76,51 @@ def sqf(I, Sigma, A, seq, g):
             m.addConstr(v_s1 <= var, name="c_v_" + str(iset1))
 
     # create constrains for realisations
+    for i in range(len(I[0])):
+        iset0 = I[0][i]
+        seq0 = seq(0, iset0)
+        var = gp.LinExpr()
+        for j in range(len(A[0][iset0])):
+            a = A[0][iset0][j]
+            seq0_a = seq0 + a
+            var += realisations[seq0_a]
 
-
-
-    # m.addConstr(..., name="c1")
-    # m.addConstrs(..., name="c2")
-    # m.addConstrs(..., name="c3")
+        r_seq0 = realisations[seq0]
+        m.addConstr(r_seq0 == var, name="r_" + str(iset0))
 
     m.optimize()
 
     return m.ObjVal
 
 
-def extract_parameters(efg):
+def extract_parameters(root_node):
     """Converts an extensive form game into the SQF parameters:
     I, Sigma, A, seq, g."""
 
     # Implement this second. It does not matter how you implement the
     # parameters -- functions, classes, or dictionaries, anything will work.
 
+    print("root_node")
+    print(root_node)
     pass
 
 
-def payoff(efg):
+def payoff(root_node):
     """Computes the value of the extensive form game"""
 
-    parameters = extract_parameters(efg)
+    parameters = extract_parameters(root_node)
+
     with contextlib.redirect_stdout(sys.stderr):
-        p = sqf(None, None, None, None, None)
+        # p = sqf(None, None, None, None, None)
+        p = None
 
     return p
 
 
 if __name__ == "__main__":
     efg = sys.stdin.read()
-    print(efg)
     game = pygambit.Game.parse_game(efg)
     root = import_efg.efg_to_nodes(game)
+    print("hello")
 
     print(payoff(root))
