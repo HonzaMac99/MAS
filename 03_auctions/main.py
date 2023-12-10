@@ -5,7 +5,8 @@ from scipy.stats import rv_continuous
 from dataclasses import dataclass
 from scipy.special import comb
 
-testing = True  # False
+# testing = True  # False
+testing = False # True
 
 @dataclass
 class _DistParam:
@@ -84,7 +85,7 @@ def read_input(io):
 
 
 if __name__ == "__main__":
-    private_v, bidders, history = read_input(sys.stdin)
+    private_v, n_bidders, history = read_input(sys.stdin)
 
     if testing:
         # opt_bid = float("nan")
@@ -98,7 +99,7 @@ if __name__ == "__main__":
 
         ### 1) Fit the distribution. ###
 
-        distr = OrderStatisticNormal(n=len(history), k=bidders)
+        distr = OrderStatisticNormal(n=len(history), k=n_bidders-1)
 
         # fit on the second highest bids (assuming my bid is the highest)
         params = distr.fit(history)
@@ -115,8 +116,12 @@ if __name__ == "__main__":
                                              (upper_bound - loc) / scale, loc=loc, scale=scale, size=1000)
 
         # compute the optimal bid
-        sorted_values = np.sort(sampled_values)
-        second_highest_bids = sorted_values[-2::-1][:len(sorted_values) - 1]
-        opt_bid = np.mean(second_highest_bids)
+        opt_bid = np.mean(sampled_values)
 
+
+        # sorted_values = np.sort(sampled_values)
+        # second_highest_bids = sorted_values[-2::-1][:len(sorted_values) - 1]
+        # opt_bid = np.mean(second_highest_bids)
+
+    print(np.mean(history))
     print(opt_bid)
