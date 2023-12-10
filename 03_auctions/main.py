@@ -5,6 +5,7 @@ from scipy.stats import rv_continuous
 from dataclasses import dataclass
 from scipy.special import comb
 
+testing = True  # False
 
 @dataclass
 class _DistParam:
@@ -85,30 +86,37 @@ def read_input(io):
 if __name__ == "__main__":
     private_v, bidders, history = read_input(sys.stdin)
 
-    opt_bid = np.mean(history)
-    # opt_bid = float("nan")
+    if testing:
+        # opt_bid = float("nan")
+        opt_bid = np.mean(history)
+        # print(opt_bid)
 
-    ### 1) Fit the distribution. ###
+        distr = OrderStatisticNormal(n=len(history), k=2)
+        # params = distr.fit(history)
+        # print(params)
+    else:
 
-    distr = OrderStatisticNormal(n=len(history), k=bidders)
+        ### 1) Fit the distribution. ###
 
-    # fit on the second highest bids (assuming my bid is the highest)
-    params = distr.fit(history)
-    # TODO: make this faster
+        distr = OrderStatisticNormal(n=len(history), k=bidders)
+
+        # fit on the second highest bids (assuming my bid is the highest)
+        params = distr.fit(history)
+        # TODO: make this faster
 
 
-    ### 2) Estimate the optimal bid. ###
+        ### 2) Estimate the optimal bid. ###
 
-    # Sample from estimated distribution truncated by private value
-    lower_bound = private_v
-    upper_bound = np.inf  # No upper bound for sampling
-    a, b, loc, scale = params
-    sampled_values = stats.truncnorm.rvs((lower_bound - loc) / scale,
-                                         (upper_bound - loc) / scale, loc=loc, scale=scale, size=1000)
+        # Sample from estimated distribution truncated by private value
+        lower_bound = private_v
+        upper_bound = np.inf  # No upper bound for sampling
+        a, b, loc, scale = params
+        sampled_values = stats.truncnorm.rvs((lower_bound - loc) / scale,
+                                             (upper_bound - loc) / scale, loc=loc, scale=scale, size=1000)
 
-    # compute the optimal bid
-    sorted_values = np.sort(sampled_values)
-    second_highest_bids = sorted_values[-2::-1][:len(sorted_values) - 1]
-    # opt_bid = np.mean(second_highest_bids)
+        # compute the optimal bid
+        sorted_values = np.sort(sampled_values)
+        second_highest_bids = sorted_values[-2::-1][:len(sorted_values) - 1]
+        opt_bid = np.mean(second_highest_bids)
 
     print(opt_bid)
